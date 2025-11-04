@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Clasifica los Residuos</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #e8f5e8; }
+        .caneca { width: 120px; height: 120px; margin: 10px; display: inline-block; border: 2px solid #333; background: #fff; padding: 5px; transition: transform 0.2s; }
+        .caneca:hover { transform: scale(1.05); }
+        .residuo { width: 80px; height: 80px; margin: 10px; display: inline-block; cursor: grab; background: #f0f0f0; border: 1px solid #ccc; transition: opacity 0.5s; }
+        .residuo img { width: 100%; height: 100%; object-fit: cover; }
+        .residuo.correcto { opacity: 0.5; }
+        #puntaje { font-size: 20px; margin: 20px; }
+        #timer { font-size: 20px; color: red; }
+        #hecho { font-size: 16px; margin: 10px; color: green; }
+        #nivel { font-size: 18px; margin: 10px; }
+        button { padding: 10px; margin: 10px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Clasifica los Residuos</h1>
+    <p>Arrastra cada residuo a la caneca correcta. ¡Salva el medio ambiente!</p>
+    <div id="nivel">Nivel: Básico</div>
+    <div id="puntaje">Puntaje: 0</div>
+    <div id="timer">Tiempo: 60s</div>
+    <div id="hecho"></div>
+    <button onclick="cambiarNivel()">Cambiar a Nivel Avanzado</button>
+    
+    <div id="residuos"></div>
+    
+    <div class="caneca" id="organicos" data-tipo="organicos">Orgánicos<br>(Comida)</div>
+    <div class="caneca" id="reciclables" data-tipo="reciclables">Reciclables<br>(Plástico, Papel)</div>
+    <div class="caneca" id="no-reciclables" data-tipo="no-reciclables">No Reciclables<br>(Vidrio roto)</div>
+    <div class="caneca" id="peligrosos" data-tipo="peligrosos">Peligrosos<br>(Pilás, Químicos)</div>
+    <div class="caneca avanzado" id="electronicos" data-tipo="electronicos" style="display: none;">Electrónicos<br>(Aparatos)</div>
+    <div class="caneca avanzado" id="textiles" data-tipo="textiles" style="display: none;">Textiles<br>(Ropa)</div>
+
+    <audio id="sonido-acierto" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" preload="auto"></audio>
+    <audio id="sonido-error" src="https://www.soundjay.com/misc/sounds/fail-buzzer-01.wav" preload="auto"></audio>
+
+    <script>
+        let puntaje = 0;
+        let tiempo = 60;
+        let nivel = 'basico';
+        let puntajeAlto = localStorage.getItem('puntajeAlto') || 0;
+        const residuos = [
+            // Orgánicos (6)
+            { nombre: 'Cáscara de banana', tipo: 'organicos', img: 'https://cdn.pixabay.com/photo/2016/03/05/19/02/banana-1238244_640.jpg', hecho: 'Las cáscaras de banana se compostan en 2-5 semanas.' },
+            { nombre: 'Manzana podrida', tipo: 'organicos', img: 'https://cdn.pixabay.com/photo/2016/08/11/08/04/vegetables-1584999_640.jpg', hecho: 'La comida orgánica alimenta a los gusanos en el compost.' },
+            { nombre: 'Hojas secas', tipo: 'organicos', img: 'https://cdn.pixabay.com/photo/2017/10/13/14/15/fall-2847750_640.jpg', hecho: 'Las hojas se convierten en abono natural.' },
+            { nombre: 'Cáscara de naranja', tipo: 'organicos', img: 'https://cdn.pixabay.com/photo/2016/03/05/19/02/orange-1238245_640.jpg', hecho: 'Las cáscaras cítricas repelen plagas en el jardín.' },
+            { nombre: 'Restos de pan', tipo: 'organicos', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/bread-2562628_640.jpg', hecho: 'El pan se descompone rápidamente en compost.' },
+            { nombre: 'Verduras marchitas', tipo: 'organicos', img: 'https://cdn.pixabay.com/photo/2016/08/11/08/04/vegetables-1584999_640.jpg', hecho: 'Las verduras orgánicas reducen metano en vertederos.' },
+            
+            // Reciclables (6)
+            { nombre: 'Botella de plástico', tipo: 'reciclables', img: 'https://cdn.pixabay.com/photo/2017/08/10/03/47/plastic-2616315_640.jpg', hecho: 'El plástico tarda 500 años en degradarse.' },
+            { nombre: 'Papel usado', tipo: 'reciclables', img: 'https://cdn.pixabay.com/photo/2015/09/01/09/32/paper-917885_640.jpg', hecho: 'Reciclar papel ahorra agua y energía.' },
+            { nombre: 'Lata de aluminio', tipo: 'reciclables', img: 'https://cdn.pixabay.com/photo/2014/12/21/23/28/can-575366_640.jpg', hecho: 'Reciclar una lata ahorra energía para 3 horas de TV.' },
+            { nombre: 'Cartón', tipo: 'reciclables', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/cardboard-2562623_640.jpg', hecho: 'El cartón se recicla en nuevos productos como cajas.' },
+            { nombre: 'Periódico', tipo: 'reciclables', img: 'https://cdn.pixabay.com/photo/2015/09/01/09/32/newspaper-917886_640.jpg', hecho: 'Reciclar periódicos salva árboles.' },
+            { nombre: 'Botella de vidrio', tipo: 'reciclables', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/glass-2562629_640.jpg', hecho: 'El vidrio se recicla infinitamente sin perder calidad.' },
+            
+            // No Reciclables (4)
+            { nombre: 'Vidrio roto', tipo: 'no-reciclables', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/broken-glass-2562622_640.jpg', hecho: 'El vidrio roto no se recicla fácilmente; usa contenedores especiales.' },
+            { nombre: 'Cerámica rota', tipo: 'no-reciclables', img: 'https://cdn.pixabay.com/photo/2016/03/27/19/31/broken-1283009_640.jpg', hecho: 'La cerámica no se recicla; tírala en basura general.' },
+            { nombre: 'Plástico contaminado', tipo: 'no-reciclables', img: 'https://cdn.pixabay.com/photo/2017/08/10/03/47/plastic-2616315_640.jpg', hecho: 'El plástico sucio no se recicla; lávalo primero.' },
+            { nombre: 'Madera pintada', tipo: 'no-reciclables', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/wood-2562630_640.jpg', hecho: 'La madera tratada no se recicla fácilmente.' },
+            
+            // Peligrosos (4)
+            { nombre: 'Pila usada', tipo: 'peligrosos', img: 'https://cdn.pixabay.com/photo/2016/11/29/05/07/battery-1867484_640.jpg', hecho: 'Las pilas contienen metales tóxicos que contaminan el suelo.' },
+            { nombre: 'Aceite usado', tipo: 'peligrosos', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/oil-2562624_640.jpg', hecho: 'El aceite contamina ríos; llévalo a centros de reciclaje.' },
+            { nombre: 'Batería de auto', tipo: 'peligrosos', img: 'https://cdn.pixabay.com/photo/2016/11/29/05/07/car-battery-1867487_640.jpg', hecho: 'Las baterías de auto son altamente tóxicas; no las tires.' },
+            { nombre: 'Pintura vieja', tipo: 'peligrosos', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/paint-2562631_640.jpg', hecho: 'La pintura contiene químicos peligrosos; recicla en centros especializados.' },
+            
+            // Electrónicos (3)
+            { nombre: 'Teléfono viejo', tipo: 'electronicos', img: 'https://cdn.pixabay.com/photo/2016/11/29/05/07/phone-1867485_640.jpg', hecho: 'Los electrónicos contienen metales raros; recicla en centros especializados.' },
+            { nombre: 'Computadora antigua', tipo: 'electronicos', img: 'https://cdn.pixabay.com/photo/2016/11/29/05/07/computer-1867486_640.jpg', hecho: 'Reciclar electrónicos evita la contaminación por mercurio.' },
+            { nombre: 'Cargador roto', tipo: 'electronicos', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/charger-2562632_640.jpg', hecho: 'Los cargadores contienen plomo; no los tires.' },
+            
+            // Textiles (2)
+            { nombre: 'Camiseta rota', tipo: 'textiles', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/clothes-2562626_640.jpg', hecho: 'La ropa se puede donar o reciclar en fibras nuevas.' },
+            { nombre: 'Pantalones desgastados', tipo: 'textiles', img: 'https://cdn.pixabay.com/photo/2017/08/01/12/43/pants-2562627_640.jpg', hecho: 'Los textiles naturales se biodegradan; los sintéticos no.' }
+        ];
+        let residuosActivos = [];
+
+        function iniciarJuego() {
+            puntaje = 0;
+            tiempo = 60;
+            document.getElementById('puntaje').textContent = `Puntaje: ${puntaje} (Récord: ${puntajeAlto})`;
+            generarResiduos();
+            const timer = setInterval(() => {
+                tiempo--;
+                document.getElementById('timer').textContent = `Tiempo: ${tiempo}s`;
+                if (tiempo <= 0) {
+                    clearInterval(timer);
+                    if (puntaje > puntajeAlto) {
+                        puntajeAlto = puntaje;
+                        localStorage.setItem('puntajeAlto', puntajeAlto);
+                    }
+                    alert(`¡Tiempo agotado! Puntaje final: ${puntaje}. Récord: ${puntajeAlto}`);
+                }
+            }, 1000);
+        }
+
+        function generarResiduos() {
+            const contenedor = document.getElementById('residuos');
+            contenedor.innerHTML = '';
+            let disponibles = residuos.filter(r => nivel === 'avanzado' || !['electronicos', 'textiles'].includes(r.tipo));
+            residuosActivos = disponibles.slice().sort(() => Math.random() - 0.5).slice(0, 6); // Ahora 6 residuos por ronda
+            residuosActivos.forEach(res => {
+                const div = document.createElement('div');
+                div.className = 'residuo';
+                div.innerHTML = `<img src="${res.img}" alt="${res.nombre}">`;
+                div.draggable = true;
+                div.dataset.tipo = res.tipo;
+                div.dataset.hecho = res.hecho;
+                div.addEventListener('dragstart', (e) => e.dataTransfer.setData('text', res.tipo + '|' + res.hecho));
+                contenedor.appendChild(div);
+            });
+        }
+
+        function cambiarNivel() {
+            nivel = nivel === 'basico' ? 'avanzado' : 'basico';
+            document.getElementById('nivel').textContent = `Nivel: ${nivel.charAt(0).toUpperCase() + nivel.slice(1)}`;
+            document.querySelectorAll('.avanzado').forEach(el => el.style.display = nivel === 'avanzado' ? 'inline-block' : 'none');
+            iniciarJuego();
+        }
+
+        document.querySelectorAll('.caneca').forEach(caneca => {
+            caneca.addEventListener('dragover', (e) => e.preventDefault());
+            caneca.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const data = e.dataTransfer.getData('text').split('|');
+                const tipoResiduo = data[0];
+                const hecho = data[1];
+                const tipoCaneca = caneca.dataset.tipo;
+                if (tipoResiduo === tipoCaneca) {
+                    puntaje += 10;
+                    document.getElementById('sonido-acierto').play();
+                    document.getElementById('hecho').textContent = `¡Correcto! ${hecho}`;
+                    e.target.classList.add('correcto');
+                    setTimeout(() => e.target.classList.remove('correcto'), 500);
+                } else {
+                    puntaje -= 5;
+                    document.getElementById('sonido-error').play();
+                    document.getElementById('hecho').textContent = `¡Error! Recuerda clasificar correctamente.`;
+                }
+                document.getElementById('puntaje').textContent = `Puntaje: ${puntaje} (Récord: ${puntajeAlto})`;
+                generarResiduos();
+            });
+        });
+
+        iniciarJuego();
+    </script>
+</body>
+</html>
